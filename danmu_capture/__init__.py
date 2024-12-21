@@ -1,0 +1,1 @@
+from .capture import danmu_capture_interface
