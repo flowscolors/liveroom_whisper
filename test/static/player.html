@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>抖音竖屏直播模式播放器</title>
+    <link href="https://vjs.zencdn.net/7.4.1/video-js.css" rel="stylesheet">
+    <script src="https://vjs.zencdn.net/7.4.1/video.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-hls/5.15.0/videojs-contrib-hls.min.js" type="text/javascript"></script>
+    <style>
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 360px;
+            margin: 0 auto;
+        }
+        .video-container::before {
+            content: "";
+            display: block;
+            padding-top: 177.78%;
+        }
+        .video-container video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div class="video-container">
+        <video id="myVideo" class="video-js vjs-default-skin vjs-big-play-centered" controls preload="auto" data-setup='{"liveui": true}'>
+            <!--<source src="" type="application/x-mpegURL">-->
+            <source src="http://pull-spe-l3.douyincdn.com/fantasy/stream-7451751673103502106_thirdor4.m3u8?auth_key=1735115911-0-0-be11e33dd79da1fc6d522d0ae3e2efa8&major_anchor_level=vip" type="application/x-mpegURL">
+        </video>
+    </div>
+
+    <script>
+        // 解析 URL 参数，获取 m3u8 的链接
+        const urlParams = new URLSearchParams(window.location.search);
+        const videoSrc = urlParams.get('url');
+
+        if (videoSrc) {
+            var myVideo = videojs('myVideo', {
+                bigPlayButton: true,
+                textTrackDisplay: false,
+                posterImage: false,
+                errorDisplay: false,
+                fluid: true,
+                liveui: true,
+                html5: {
+                    hls: {
+                        withCredentials: false,
+                        overrideNative: true,
+                        liveLowLatency: true,
+                    },
+                },
+            });
+
+/*            myVideo.src({
+                src: videoSrc,
+                type: "application/x-mpegURL",
+            });
+
+            myVideo.load();
+            myVideo.play().catch(function (error) {
+                console.error("自动播放失败：", error);
+            });*/
+            // 自动加载并播放视频
+            myVideo.ready(function () {
+                myVideo.muted(false); // 如果需要静音播放，改为 true
+                myVideo.src({
+                    src: videoSrc,
+                    type: "application/x-mpegURL",
+                });
+
+                myVideo.load();
+                myVideo.play().catch(function (error) {
+                    console.error("自动播放失败：", error);
+                });
+            });
+        } else {
+            console.error("未提供视频链接！");
+        }
+    </script>
+</body>
+</html>
