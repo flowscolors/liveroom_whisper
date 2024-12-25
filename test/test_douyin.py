@@ -4,7 +4,9 @@ from urllib.parse import unquote_plus
 import requests
 
 res = requests.get(
-    url="https://live.douyin.com/80017709309",
+    url="https://live.douyin.com/646454278948",
+    #url="https://live.douyin.com/239390079803",
+    #url="https://live.douyin.com/80017709309",
     headers={
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
     },
@@ -13,6 +15,7 @@ res = requests.get(
     }
 )
 hls_pull_url_list = re.findall(r'"hls_pull_url\\":\\"(.*?)\\",', res.text)
+print(hls_pull_url_list)
 hls_pull_url = next((url for url in hls_pull_url_list if 'auth_key' in url), None)
 print(hls_pull_url)
 
