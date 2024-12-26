@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket 实时更新Messages</title>
+    <style>
+        #messageBox {
+            width: 800px;
+            height: 400px;
+            overflow-y: scroll;
+        }
+    </style>
+</head>
+
+<body>
+    <textarea id="messageBox" placeholder="这里将显示 WebSocket 消息" style="font-weight: bold; font-size: 15px"></textarea>
+    <script>
+        // 解析 url 参数
+        var urlParams = new URLSearchParams(window.location.search);
+        var WS_SERVER_URL = urlParams.get('WS_SERVER_URL');
+        // 存储接收到的消息
+        const messages = [];
+        // 创建 WebSocket 对象
+        console.log(WS_SERVER_URL);
+        const socket = new WebSocket(WS_SERVER_URL);
+
+        // 当 WebSocket 连接成功时触发的事件
+        socket.onopen = function (event) {
+            console.log('WebSocket 连接已建立');
+        };
+
+        // 当接收到服务器发送的消息时触发的事件
+        socket.onmessage = function (event) {
+            const message = event.data;
+            const json_data = JSON.parse(message);
+            if (json_data.Type == 1) {
+                const data = JSON.parse(json_data.Data);
+                const received_message = `[直播间：${data.Onwer.Nickname} room_id：${data.RoomId}] [time：${new Date().toLocaleString()}] [用户：${data.User.Nickname}]：${data.Content}`;
+                messages.push(received_message);
+            }
+            if (messages.length > 10) {
+                messages.shift();
+            }
+            updateTextBox();
+        };
+
+        // 当 WebSocket 连接出现错误时触发的事件
+        socket.onerror = function (error) {
+            console.log('WebSocket 连接出错:', error);
+        };
+
+        // 当 WebSocket 连接关闭时触发的事件
+        socket.onclose = function (event) {
+            console.log('WebSocket 连接已关闭');
+        };
+
+        function updateTextBox() {
+            const textBox = document.getElementById('messageBox');
+            textBox.value = messages.join('\n');
+        }
+    </script>
+</body>
+
+</html>
