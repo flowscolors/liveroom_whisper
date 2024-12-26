@@ -2,7 +2,7 @@ import subprocess
 import threading
 import wave
 import numpy as np
-from queue import Queue
+from queue import Queue, Empty  # 正确导入 Empty
 from faster_whisper import WhisperModel
 from opencc import OpenCC
 
@@ -49,14 +49,19 @@ def read_audio_stream(m3u8_url):
             "-ar", "16000",
             "pipe:1"
         ]
+        print("---------------------ffmpeg命令---------------------")
+        print( command)
         process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=10 ** 8)
 
         while True:
-            audio_chunk = process.stdout.read(8192 * 2)  # 每次读取 8192 samples (16-bit PCM)
+            print("audio_chunk开始读取")
+            audio_chunk = process.stdout.read(8192 * 5)  # 每次读取 8192 samples (16-bit PCM)
+            print("读取音频成功。")
             if not audio_chunk:
                 break
             if not audio_queue.full():
                 audio_queue.put(audio_chunk)
+               # print("音频放入audio_chunk队列")
             else:
                 print("队列已满，音频块被丢弃")
     except Exception as e:
@@ -74,7 +79,7 @@ def transcribe_audio():
     while True:
         try:
             # 从队列获取音频块
-            audio_chunk = audio_queue.get(timeout=1)
+            audio_chunk = audio_queue.get(timeout=1)  # 如果 1 秒内无数据，则抛出 Empty 异常
             audio_buffer += audio_chunk
 
             # 如果缓冲区中音频长度达到目标长度，开始转录
@@ -98,6 +103,9 @@ def transcribe_audio():
 
                 # 清空已处理的缓冲区
                 audio_buffer = audio_buffer[target_audio_length:]
+        except Empty:
+            continue
+          #  print("音频队列为空，等待新的音频数据...")
         except Exception as e:
             print(f"音频处理错误：{e}")
             continue
@@ -105,7 +113,7 @@ def transcribe_audio():
 
 # 主函数
 def main():
-    m3u8_url = "http://pull-l3.douyincdn.com/third/stream-116439569537434079_hd.m3u8?auth_key=1735744432-0-0-f4a4e4cc5856ec7b665dcdebe047c446\u0026major_anchor_level=common"  # 替换为实际的 m3u8 URL
+    m3u8_url = "http://pull-spe-l3.douyincdn.com/fantasy/stream-404675504787948214.m3u8?auth_key=1735264934-0-0-9398f52bae5547ff2f182af49d49f021\u0026major_anchor_level=vip"  # 替换为实际的 m3u8 URL
 
     # 创建音频读取线程
     audio_thread = threading.Thread(target=read_audio_stream, args=(m3u8_url,))
