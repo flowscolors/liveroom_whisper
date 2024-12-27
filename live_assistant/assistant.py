@@ -1,6 +1,5 @@
 import subprocess
 import threading
-import wave
 import numpy as np
 from queue import Queue, Empty  # 正确导入 Empty
 from faster_whisper import WhisperModel
@@ -8,6 +7,7 @@ from opencc import OpenCC
 import gradio as gr
 from datetime import datetime
 from utils.live import get_douyin_room_info  # 假设您有这个方法来获取直播间信息
+from utils.qwen import explain_sensitive_words
 
 # 初始化 Faster-Whisper 模型和 OpenCC 转换器
 cc = OpenCC('t2s')  # 繁体中文 -> 简体中文
@@ -15,10 +15,46 @@ model_path = "F:/whisper-model/faster-whisper-large-v2"  # 替换为 Whisper 模
 whisper_model = WhisperModel(model_path, device="cuda", compute_type="float16")  # 使用 GPU（可改为 CPU）
 
 # 音频队列，用于线程间传递音频数据块
-audio_queue = Queue(maxsize=200)
+audio_queue = Queue(maxsize=500)
 
 # 全局变量，用于实时更新转录结果
 transcription_result = ""
+
+# 全局变量，用于实时更新敏感词分析结果
+sensitive_results = []
+
+# 敏感词列表和对应的补充解释
+sensitive_words = [
+    "违禁品",
+    "危险",
+    "敏感",
+    "退保",
+    "理赔",
+    "收益",
+    "保险",
+    "报销",
+    "老年",
+    "免赔",
+    "保障",
+    "理赔",
+    "谢谢"
+]
+
+def detect_sensitive_words(text):
+    """
+    检测文本中是否包含敏感词，并返回提示和补充解释。
+    """
+    global sensitive_results
+
+    # 遍历敏感词列表，逐一检测
+    for word in sensitive_words:
+        if word in text:
+            # 调用大模型生成解释
+            explanation = explain_sensitive_words(word, text)
+            print(explanation)
+            sensitive_results.append({'word': word, 'explanation': explanation})
+
+    return None
 
 def int2float(sound):
     abs_max = np.abs(sound).max()
@@ -106,6 +142,9 @@ def transcribe_audio():
                     # 将繁体中文转换为简体中文
                     result_text_simplified = cc.convert(result_text)
 
+                    # 检测敏感词
+                    detect_sensitive_words(result_text_simplified)
+
                     # 打印转录结果
                     print(f"实时转录结果（简体中文）：{result_text_simplified}")
                     transcription_result =  transcription_result + result_text_simplified + "\n"
@@ -144,6 +183,13 @@ def get_transcription():
     """
     global transcription_result
     return transcription_result
+
+def get_sensitive():
+    """
+    返回当前的实时转录结果
+    """
+    global sensitive_results
+    return sensitive_results
 
 
 # Gradio 页面构建
@@ -188,6 +234,31 @@ def update_room_info_and_video(live_url):
     except Exception as e:
         return f"错误：{str(e)}", "", ""
 
+# 定时触发更新文本提取内容
+def update_text():
+    def inner():
+        now = datetime.now()
+        current_time = now.strftime("%Y-%m-%d %H:%M:%S")
+        output = get_transcription()
+        return f"欢迎使用,当前时间是: {current_time} ，当前内容 {output}"
+
+    return inner
+
+def update_analysis():
+    def inner_analysis():
+        now = datetime.now()
+        current_time = now.strftime("%Y-%m-%d %H:%M:%S")
+        sensitive_data = get_sensitive()
+        if sensitive_data:  # 如果有检测到敏感词
+            # 将每个敏感词及其解释格式化为一行
+            formatted_output = "\n".join(
+                [f"敏感词: {item['word']}\n解释: {item['explanation']}" for item in sensitive_data]
+            )
+        else:  # 如果没有检测到敏感词
+            formatted_output = "未检测到敏感词"
+        return formatted_output
+
+    return inner_analysis
 
 # Gradio 定时触发更新
 def live_assistant_interface():
@@ -212,11 +283,9 @@ def live_assistant_interface():
             # 文本提取结果实时更新
             with gr.Column(scale=1):
                 gr.Markdown("## 实时文本提取")
-                #text_output = gr.Textbox(label="提取的文本", lines=20, interactive=False)
-                text_output = gr.Textbox(label="实时状态",
-                                   value=update_text(),
-                                   every=1,
-                                   info="当前时间", )
+                text_output = gr.Textbox(value=update_text(),every=1)
+                gr.Markdown("## 智能语音分析")
+                sensitive_analysis_output = gr.Textbox(value=update_analysis(), every=1)
         # 点击按钮事件，开始更新页面内容
         submit_button.click(
             fn=update_room_info_and_video,  # 处理函数
@@ -228,12 +297,3 @@ def live_assistant_interface():
     return tab
 
 
-# 定时触发更新文本提取内容
-def update_text():
-    def inner():
-        now = datetime.now()
-        current_time = now.strftime("%Y-%m-%d %H:%M:%S")
-        output = get_transcription()
-        return f"欢迎使用,当前时间是: {current_time} ，当前内容 {output}"
-
-    return inner
